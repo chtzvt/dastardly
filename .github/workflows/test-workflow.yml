@@ -1,0 +1,21 @@
+name: "Test Repo Workflow"
+
+on: 
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+  checks: write
+  statuses: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./
+        with: 
+          target-url: https://ginandjuice.shop/
+          enable-sarif-report: true

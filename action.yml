@@ -1,0 +1,62 @@
+name: 'Dastardly SARIF Scan Action'
+description: 'Runs a Dastardly scan against a target site, with SARIF support'
+author: 'chtzvt'
+inputs:
+  target-url:
+    description: 'The full url (including scheme) of the site to scan'
+    required: true
+  output-filename:
+    description: 'The filename used for the scan report. This filepath relates to the dastardly container, and will exist in the github workspace (/github/workspace)'
+    required: false
+    default: dastardly-report.xml
+  enable-junit-report:
+    description: 'Whether to enable the junit report. This will be uploaded as an artifact'
+    required: false
+    default: false
+  enable-sarif-report:
+    description: 'Whether to enable the sarif report. This will be uploaded as a code scanning result'
+    required: false
+    default: true 
+  upload-raw-report:
+    description: 'Whether to upload the raw Dastardly JUnit report as an artifact'
+    required: false
+    default: false 
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v2
+    - name: Run Dastardly Action Step
+      continue-on-error: true
+      uses: PortSwigger/dastardly-github-action@main
+      with:
+        target-url: ${{ inputs.target-url }}
+        output-filename: ${{ inputs.output-filename }}
+    - uses: actions/upload-artifact@v3
+      if: ${{ inputs.upload-raw-report == 'true' }}
+      with:
+        name: report
+        path: dastardly-report.xml
+    - name: Publish JUnit Report
+      if: ${{ inputs.enable-junit-report == 'true' }}
+      uses: mikepenz/action-junit-report@v3
+      with:
+        require_tests: true
+        report_paths: '**/dastardly-report.xml'
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      if: ${{ inputs.enable-sarif-report == 'true' }}
+      with:
+        python-version: '3.10' 
+    - name: Convert Dastardly JUnit Report to SARIF
+      run: python sarif-convert.py
+      shell: bash
+      if: ${{ inputs.enable-sarif-report == 'true' }}
+    - name: Upload SARIF as Code Scanning Results
+      if: ${{ inputs.enable-sarif-report == 'true' }}
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: output.sarif
+        category: "dastardly-scan"
+branding:
+  icon: 'activity'
+  color: 'blue'
