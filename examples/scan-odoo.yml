@@ -1,0 +1,62 @@
+name: DAST Scan
+
+on:
+  pull_request:
+    branches: ["*"]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: dast-scan
+
+permissions:
+  actions: read
+  checks: write
+  contents: read
+  packages: read
+  security-events: write
+  statuses: write
+
+jobs:
+  dast:
+    name: Run DAST Scan
+
+    runs-on: ubuntu-latest
+    container: ubuntu
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:13
+        ports: ["5432:5432"]
+        env:
+          POSTGRES_USER: odoo
+          POSTGRES_PASSWORD: odoo
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      odoo:
+        image: odoo
+        ports: ["8069:8069"]
+        env:
+          POSTGRES_USER: odoo
+          POSTGRES_PASSWORD: odoo
+          POSTGRES_DB: postgres
+          HOST: postgres
+        options: >-
+          --health-cmd "curl --fail http://localhost:8069 || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - run: apt-get update; apt-get install curl -y
+      - run: curl -vvv http://odoo:8069/ > curl_result_docker
+      - run: cat curl_result_docker
+      - name: Run Dastardly
+        uses: chtzvt/dastardly@v1
+        with: 
+            target-url: http://odoo:8069/
+            enable-sarif-report: true
