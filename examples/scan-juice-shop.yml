@@ -1,0 +1,38 @@
+name: DAST Scan
+
+on:
+  pull_request:
+    branches: ["*"]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: dast-scan
+
+permissions:
+  actions: read
+  checks: write
+  contents: read
+  packages: read
+  security-events: write
+  statuses: write
+
+jobs:
+  dast:
+    name: Run DAST Scan
+
+    runs-on: ubuntu-latest
+    container: ubuntu
+    timeout-minutes: 20
+
+    services:
+      juice_shop:
+        image: bkimminich/juice-shop
+        ports: ["3000:3000"]
+
+    steps:
+      - name: Run Dastardly
+        uses: chtzvt/dastardly@v1
+        with: 
+            target-url: http://juice_shop:3000/
+            enable-sarif-report: true
